@@ -93,30 +93,31 @@ def update_package(new, old, destination, purge):
 def main():
     logging.basicConfig(format='%(asctime)s %(message)s')
     args = configure_parser()
-    if args is not None:
-        print "Copying from {0} to {1}".format(args.source, args.destination)
+    if args:
         source_index = search_source(args.source, args.recursive)
         dest_index = search_dest(args.destination)
 
-        if source_index is not None:
+        if source_index:
             packagesToUpdate = list(set(source_index.keys()) & set(dest_index.keys()))
 
             if args.verbose:
-                print source_index
-                print dest_index
+                print "Copying packages to repo"
+                print "From: {0}".format(args.source)
+                print "To: {0}".format(args.destination)
+                print "Found source packages: {0}".format(source_index.keys())
+                print "Found current packages: {0}".format(dest_index.keys())
                 print packagesToUpdate
-
+            # TODO: Edit to include all packages from souce, not only the repeated ones
             for package in packagesToUpdate:
-                if update_package(source_index[package], dest_index[package], args.destination, args.purge) is None:
+                if not update_package(source_index[package], dest_index[package], args.destination, args.purge):
                     return 4
-            if args.execute:
-                if call('{0} {1}'.format(args.execute, args.destination), shell=True):
-                    return 5
+            if args.execute and call('{0} {1}'.format(args.execute, args.destination), shell=True):
+                return 5
         else:
-            logging.error("No .rpm's found in directory {0}".format(args.source))
+            print "No .rpm's found in directory {0}".format(args.source)
             return 2
     else:
-        logging.error("Unknown error")
+        print "Unspecified error"
         return 1
     return 0
 
