@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/python -u
 # coding=utf-8
 __author__ = 'Wojciech Urbański'
 
@@ -106,6 +106,7 @@ def add_package(new, destination):
 
 
 def main():
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     logging.basicConfig(format='%(asctime)s %(message)s')
     args = configure_parser()
     if args:
