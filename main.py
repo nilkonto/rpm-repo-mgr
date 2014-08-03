@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # coding=utf-8
 __author__ = 'Wojciech Urbański'
 
@@ -87,7 +88,21 @@ def update_package(new, old, destination, purge):
                         destpath)
         return 0
     else:
-        return None
+        return 1
+
+
+def add_package(new, destination):
+    if os.path.isfile(new['path']):
+        destpath = os.path.join(os.path.abspath(destination), new['arch'], os.path.basename(new['path']))
+        try:
+            os.makedirs(os.path.dirname(destpath))
+        except OSError:
+            if not os.path.isdir(os.path.dirname(destpath)):
+                raise
+        shutil.copyfile(new['path'],
+                        destpath)
+        return 0
+    return 1
 
 
 def main():
@@ -98,26 +113,50 @@ def main():
         dest_index = search_dest(args.destination)
 
         if source_index:
-            packagesToUpdate = list(set(source_index.keys()) & set(dest_index.keys()))
+            packagesToUpdate = set(source_index.keys()) & set(dest_index.keys())
 
             if args.verbose:
-                print "Copying packages to repo"
-                print "From: {0}".format(args.source)
-                print "To: {0}".format(args.destination)
-                print "Found source packages: {0}".format(source_index.keys())
-                print "Found current packages: {0}".format(dest_index.keys())
-                print packagesToUpdate
-            # TODO: Edit to include all packages from souce, not only the repeated ones
-            for package in packagesToUpdate:
-                if not update_package(source_index[package], dest_index[package], args.destination, args.purge):
-                    return 4
-            if args.execute and call('{0} {1}'.format(args.execute, args.destination), shell=True):
-                return 5
+                print "=== rpm-repo-mgr"
+                print "== Copying packages to repository"
+                print "=  From: {0}".format(args.source)
+                print "=  To: {0}".format(args.destination)
+                print "=  Found packages to copy: {0}".format(source_index.keys())
+                print "=  Found existing packages: {0}".format(dest_index.keys())
+
+            for package in source_index.keys():
+                if args.verbose:
+                    print "   -package: {0}".format(package)
+                if package in dest_index.keys():
+                    if update_package(source_index[package], dest_index[package], args.destination, args.purge):
+                        logging.error("FAILED on package: {0}".format(package))
+                        return 4
+                    if args.verbose:
+                        if not args.purge:
+                            print "    -backed up and moved"
+                        else:
+                            print "    -moved"
+                else:
+                    if add_package(source_index[package], args.destination):
+                        return 5
+                    if args.verbose:
+                        print "    -moved"
+
+            if args.execute:
+                outdev = None
+                if not args.verbose:
+                    outdev = open(os.devnull, r'w')
+                else:
+                    print "== Running {0} in directory {1}".format(args.execute, args.destination)
+                if call([args.execute, args.destination], stdout=outdev, shell=False):
+                    logging.error("Execution of {0} failed.".format(args.execute))
+                    return 6
+                if not args.verbose:
+                    outdev.close()
         else:
-            print "No .rpm's found in directory {0}".format(args.source)
+            logging.error("No .rpm's found in directory {0}".format(args.source))
             return 2
     else:
-        print "Unspecified error"
+        logging.error("Unspecified error")
         return 1
     return 0
 
